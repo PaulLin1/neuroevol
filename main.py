@@ -19,26 +19,26 @@ torch.manual_seed(42)
 
 # 8x8
 
-# from sklearn.datasets import load_digits
-# from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
 
-# digits = load_digits()
+digits = load_digits()
 
-# data_tensor = torch.tensor(digits.data, dtype=torch.float32)
-# data_tensor = torch.tensor(digits.data / 16.0, dtype=torch.float32) # Normalize for neat
-# target_tensor = torch.tensor(digits.target, dtype=torch.long)
+data_tensor = torch.tensor(digits.data, dtype=torch.float32)
+data_tensor = torch.tensor(digits.data / 16.0, dtype=torch.float32) # Normalize for neat
+target_tensor = torch.tensor(digits.target, dtype=torch.long)
 
-# # 80/20 split
-# X_train, X_test, y_train, y_test = train_test_split(
-#     data_tensor, target_tensor, test_size=0.2, random_state=42, shuffle=True
-# )
+# 80/20 split
+X_train, X_test, y_train, y_test = train_test_split(
+    data_tensor, target_tensor, test_size=0.2, random_state=42, shuffle=True
+)
 
-# train_dataset = TensorDataset(X_train, y_train)
-# test_dataset = TensorDataset(X_test, y_test)
+train_dataset = TensorDataset(X_train, y_train)
+test_dataset = TensorDataset(X_test, y_test)
 
-# # Batch is the full size because there is no backpropogation
-# train_loader = DataLoader(train_dataset, batch_size=len(train_dataset))
-# test_loader = DataLoader(test_dataset, batch_size=len(test_dataset))
+# Batch is the full size because there is no backpropogation
+train_loader = DataLoader(train_dataset, batch_size=len(train_dataset))
+test_loader = DataLoader(test_dataset, batch_size=len(test_dataset))
 
 
 # --------------------------------------------------------------------------------------------------------
@@ -48,37 +48,41 @@ torch.manual_seed(42)
 
 # 28x28
 
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-from torch.utils.data import DataLoader, Subset
+# from torchvision import datasets, transforms
+# from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader, Subset
 
-transform = transforms.Compose([
-    transforms.ToTensor(),  # Converts images to PyTorch tensors
-    transforms.Normalize((0.1307,), (0.3081,))  # Mean and std dev for MNIST
-])
+# transform = transforms.Compose([
+#     transforms.ToTensor(),  # Converts images to PyTorch tensors
+#     transforms.Normalize((0.1307,), (0.3081,))  # Mean and std dev for MNIST
+# ])
 
-# Load training and test datasets
-train_dataset = datasets.MNIST(root='./data', train=True, transform=transform)
-test_dataset = datasets.MNIST(root='./data', train=False, transform=transform)
+# # Load training and test datasets
+# train_dataset = datasets.MNIST(root='./data', train=True, transform=transform)
+# test_dataset = datasets.MNIST(root='./data', train=False, transform=transform)
 
-# Subset stuff
-train_size = len(train_dataset) // 4
-test_size = len(test_dataset) // 4
+# # Subset stuff
+# train_size = len(train_dataset) // 4
+# test_size = len(test_dataset) // 4
 
-train_subset = Subset(train_dataset, torch.randperm(len(train_dataset))[:train_size])
-test_subset = Subset(test_dataset, torch.randperm(len(test_dataset))[:test_size])
+# train_subset = Subset(train_dataset, torch.randperm(len(train_dataset))[:train_size])
+# test_subset = Subset(test_dataset, torch.randperm(len(test_dataset))[:test_size])
 
-train_loader = DataLoader(train_dataset, batch_size=len(train_dataset), shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=len(train_dataset), shuffle=False)
+# train_loader = DataLoader(train_dataset, batch_size=len(train_dataset), shuffle=True)
+# test_loader = DataLoader(test_dataset, batch_size=len(train_dataset), shuffle=False)
+
+
+# --------------------------------------------------------------------------------------------------------
+
 
 # Init stuff
 
 # Hyperparameters
-population_size = 150
-epochs = 200
-input_dim = 28*28
+population_size = 300
+epochs = 300
+input_dim = 8*8
 output_dim = 10
-top_k = 0.1 # The percentage of genomes to keep for reproduction
+top_k = 0.4 # The percentage of genomes to keep for reproduction
 crossover_percent = 0.5
 
 # hyperparameters for measuring compatibility from https://nn.cs.utexas.edu/downloads/papers/stanley.cec02.pdf
@@ -227,3 +231,5 @@ with torch.no_grad():
 
 accuracy = correct / total
 print(f"Accuracy: {accuracy * 100:.2f}%")
+
+torch.save(model.state_dict(), f"models/sklearn_digits_300pop_300epoch_real{accuracy * 100:.2f}.pth")

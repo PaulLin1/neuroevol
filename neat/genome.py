@@ -1,3 +1,8 @@
+"""
+Functions on a genome
+
+TO DO: Move mutate stuff here from cppn file and nn file
+"""
 import random
 
 def crossover(info1, info2):
