@@ -37,3 +37,16 @@ def measure_compatibility(genome1, genome2, c1, c2, c3):
     delta = (c1 * excess / N) + (c2 * disjoint / N) + (c3 * weight_diff)
         
     return delta
+
+import random
+
+def tournament_selection(population, tournament_size=5, num_winners=1):
+    if len(population) < tournament_size:
+        tournament_size = len(population)
+
+    winners = []
+    for _ in range(num_winners):
+        tournament = random.sample(population, tournament_size)
+        winner = max(tournament, key=lambda model_info: model_info['fitness'])
+        winners.append(winner)
+    return winners
