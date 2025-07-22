@@ -1,42 +1,33 @@
-def measure_compatibility(genome1, genome2, c1, c2, c3):
-    genome1_conns = {i.innov_num: i.weight for i in genome1.connections}
-    genome2_conns = {i.innov_num: i.weight for i in genome2.connections}
+import numpy as np
 
-    innovs1 = set(genome1_conns.keys())
-    innovs2 = set(genome2_conns.keys())
+def measure_compatibility(g1, g2, c1, c2, c3):
+    # Use dicts for fast lookup
+    g1_dict = {conn.innov_num: conn.weight.item() for conn in g1.connections}
+    g2_dict = {conn.innov_num: conn.weight.item() for conn in g2.connections}
 
-    max_innov1 = max(innovs1) if innovs1 else 0
-    max_innov2 = max(innovs2) if innovs2 else 0
-    max_innov = max(max_innov1, max_innov2)
+    if not g1_dict and not g2_dict:
+        return 0.0
 
-    # Matching genes: innovation numbers in both genomes
-    matching = innovs1.intersection(innovs2)
-    # Calculate average weight difference for matching genes
-    if matching:
-        weight_diff = sum(abs(genome1_conns[i] - genome2_conns[i]) for i in matching) / len(matching)
+    g1_keys = set(g1_dict)
+    g2_keys = set(g2_dict)
+
+    max1 = max(g1_keys, default=0)
+    max2 = max(g2_keys, default=0)
+
+    matching_keys = g1_keys & g2_keys
+    if matching_keys:
+        w_diff = np.fromiter((abs(g1_dict[k] - g2_dict[k]) for k in matching_keys), dtype=np.float32).mean()
     else:
-        weight_diff = 0
+        w_diff = 0.0
 
-    # Excess genes: genes whose innovation number is greater than max innovation number of other genome
-    excess = 0
-    for innov in innovs1:
-        if innov > max_innov2:
-            excess += 1
-    for innov in innovs2:
-        if innov > max_innov1:
-            excess += 1
+    # Count excess and disjoint efficiently
+    excess = sum(1 for k in g1_keys if k > max2) + sum(1 for k in g2_keys if k > max1)
+    disjoint = len(g1_keys ^ g2_keys) - excess
 
-    # Disjoint genes: genes that do not match and are not excess
-    disjoint = (len(innovs1 - innovs2) + len(innovs2 - innovs1)) - excess
+    N = max(len(g1_dict), len(g2_dict))
+    N = max(N, 1) if N < 20 else N  # Avoid division by small numbers
 
-    # Normalization factor N
-    N = max(len(genome1_conns), len(genome2_conns))
-    if N < 20:
-        N = 1  # as per original NEAT paper for small genomes
-
-    delta = (c1 * excess / N) + (c2 * disjoint / N) + (c3 * weight_diff)
-        
-    return delta
+    return (c1 * excess / N) + (c2 * disjoint / N) + (c3 * w_diff)
 
 import random
 

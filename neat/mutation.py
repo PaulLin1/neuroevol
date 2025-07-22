@@ -12,7 +12,7 @@ def weight_perturbation(model, quiet=False):
     rand_conn = random.choice(model.connections)
     
     mean = 0.0
-    std_dev = 0.5
+    std_dev = 0.1
     
     noise = torch.randn_like(rand_conn.weight) * std_dev + mean
     rand_conn.weight += noise
@@ -23,7 +23,7 @@ def weight_perturbation(model, quiet=False):
 def weight_modification(model, quiet=False):
     rand_conn = random.choice(model.connections)
 
-    rand_conn.weight = torch.randn(1)
+    rand_conn.weight = torch.empty(1).uniform_(-1, 1) 
     
     if not quiet:
         print(f'connection {rand_conn.innov_num} (in this nn) weight modified to {rand_conn.weight.item():.2f}')
@@ -66,7 +66,7 @@ def add_connection(model, quiet=False):
             continue
 
         # Prevents acylic
-        if model.creates_cycle(rand_node_in, rand_node_out):
+        if creates_cycle(model, rand_node_in, rand_node_out):
             continue
 
         in_out_tuple = (rand_node_in.id, rand_node_out.id)
