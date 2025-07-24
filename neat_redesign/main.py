@@ -156,5 +156,6 @@ def neat_evolution_loop(train_loader, val_loader, device,
 
 # Run the simple NEAT evolutionary loop
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(device)
 best_genome, best_fitness = neat_evolution_loop(train_loader, val_loader, device)
 print("Best model achieved fitness:", best_fitness)
