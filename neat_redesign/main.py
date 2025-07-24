@@ -82,7 +82,8 @@ def evaluate_fitness(genome, data_loader, device):
 # Simple NEAT evolutionary loop
 def neat_evolution_loop(train_loader, val_loader, device,
                         population_size=10, generations=5,
-                        selection_frac=0.4, mutation_probs=None):
+                        selection_frac=0.4, mutation_probs=None,
+                        use_crossover=False, quiet=False):
     if mutation_probs is None:
         mutation_probs = {
             'weight_mutate': 0.8,
@@ -94,50 +95,48 @@ def neat_evolution_loop(train_loader, val_loader, device,
     innovation_tracker = InnovationTracker()
 
     # Initialize population
-    population = [Genome(28*28, 10, device=device, innovation_tracker=innovation_tracker) for _ in range(population_size)]
+    population = [Genome(28*28, 10, device=device, innovation_tracker=innovation_tracker)
+                  for _ in range(population_size)]
 
     best_genome = None
     best_fitness = -float('inf')
 
     for gen in range(generations):
-        print(f"\nGeneration {gen+1}")
+        if not quiet:
+            print(f"\nGeneration {gen+1}")
 
-        # Evaluate fitness for each genome
+        # Evaluate fitness
         fitnesses = []
         for i, genome in enumerate(population):
             fitness = evaluate_fitness(genome, val_loader, device)
             fitnesses.append((fitness, genome))
-            print(f"  Genome {i}: fitness={fitness:.3f}")
-
-            # Track global best
+            if not quiet:
+                print(f"  Genome {i}: fitness={fitness:.3f}")
             if fitness > best_fitness:
                 best_fitness = fitness
                 best_genome = genome
 
-        # Sort by fitness descending
+        # Sort and select top
         fitnesses.sort(key=lambda x: x[0], reverse=True)
-
-        # Select top performers
         num_selected = max(2, int(selection_frac * population_size))
         selected = [g for _, g in fitnesses[:num_selected]]
 
-        print(f"  Selected top {num_selected} genomes")
+        if not quiet:
+            print(f"  Selected top {num_selected} genomes")
 
-        # Reproduce new population
-        new_population = []
-
-        # Keep best genome unchanged (elitism)
-        new_population.append(selected[0])
+        # Create new population
+        new_population = [selected[0]]  # Elitism
 
         while len(new_population) < population_size:
-            # Crossover two random parents from selected
-            parent1 = random.choice(selected)
-            parent2 = random.choice(selected)
+            if use_crossover:
+                parent1 = random.choice(selected)
+                parent2 = random.choice(selected)
+                child = parent1.crossover(parent2)
+            else:
+                parent = random.choice(selected)
+                child = parent.clone()
 
-            # Perform crossover (parent1 assumed fitter or equal)
-            child = parent1.crossover(parent2)
-
-            # Mutations on child
+            # Mutations
             if random.random() < mutation_probs['weight_mutate']:
                 child.mutate_weights(perturb_chance=0.9, reset_chance=0.1)
             if random.random() < mutation_probs['add_connection']:
@@ -149,13 +148,18 @@ def neat_evolution_loop(train_loader, val_loader, device,
 
         population = new_population
 
-    print("Evolution complete.")
-    print(f"Best fitness: {best_fitness:.3f}")
+    if not quiet:
+        print("Evolution complete.")
+        print(f"Best fitness: {best_fitness:.3f}")
+
+    print(best_fitness)
     return best_genome, best_fitness
 
 
-# Run the simple NEAT evolutionary loop
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
-best_genome, best_fitness = neat_evolution_loop(train_loader, val_loader, device)
-print("Best model achieved fitness:", best_fitness)
+# print(device)
+# best_genome, best_fitness = neat_evolution_loop(train_loader, val_loader, device)
+# print("Best model achieved fitness:", best_fitness)
+
+import cProfile
+cProfile.run("neat_evolution_loop(train_loader, val_loader, device, population_size=100, generations=100, quiet=True)", sort="time")

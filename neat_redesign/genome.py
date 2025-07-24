@@ -219,3 +219,33 @@ class Genome(nn.Module):
 
         dist = (c1 * len(excess_innovs) / N) + (c2 * len(disjoint_innovs) / N) + (c3 * avg_weight_diff)
         return dist
+        
+    def clone(self):
+        new = object.__new__(Genome)
+        nn.Module.__init__(new)  # Required to allow nn.Parameter assignment
+
+        # Core attributes
+        new.device = self.device
+        new.input_dim = self.input_dim
+        new.output_dim = self.output_dim
+        new.innovation_tracker = self.innovation_tracker
+
+        # Node info
+        new.input_nodes = self.input_nodes
+        new.output_nodes = self.output_nodes
+        new.node_count = self.node_count
+        new.all_nodes = self.all_nodes[:]
+
+        # Edge info
+        new.edge_index = self.edge_index.clone()
+        new.edge_weight = nn.Parameter(self.edge_weight.detach().clone())
+        new.edge_enabled = self.edge_enabled.clone()
+        new.edge_innovations = self.edge_innovations.clone()
+
+        # Bias
+        new.bias = nn.Parameter(self.bias.detach().clone())
+
+        return new
+
+
+
