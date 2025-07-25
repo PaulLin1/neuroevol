@@ -50,37 +50,6 @@ class Genome(nn.Module):
         # Bias not part of vanilla neat but nice
         self.bias = nn.Parameter(torch.zeros(self.node_count, device=device))
 
-    # def build_adjacency_matrix(self):
-    #     # Only enabled edges
-    #     mask = self.edge_enabled
-    #     src = self.edge_index[0, mask]
-    #     dst = self.edge_index[1, mask]
-    #     weights = self.edge_weight[mask]
-        
-    #     indices = torch.stack([dst, src], dim=0)  # transpose src->dst to dst->src for multiplication
-    #     values = weights
-    #     size = (self.node_count, self.node_count)
-    #     A = torch.sparse_coo_tensor(indices, values, size, device=self.device)
-    #     A = A.coalesce()
-
-    #     return A
-    
-    # def forward(self, x, steps=10):
-    #     batch_size = x.size(0)
-    #     activations = torch.zeros(batch_size, self.node_count, device=self.device, dtype=x.dtype)
-    #     activations[:, self.input_nodes] = x
-
-    #     A = self.build_adjacency_matrix()
-
-    #     for _ in range(steps):
-    #         # Sparse matmul: (N_nodes x N_nodes) @ (B x N_nodes)^T -> (N_nodes x B), then transpose back
-    #         activations = torch.sparse.mm(A, activations.T).T + self.bias
-
-    #         activations = torch.sigmoid(activations)
-    #         activations[:, self.input_nodes] = x  # clamp inputs
-
-    #     return activations[:, self.output_nodes]
-
     def build_dense_adjacency_matrix(self):
         """
         Builds a dense adjacency matrix from the genome's enabled edges.

@@ -8,19 +8,60 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchvision.transforms import InterpolationMode
 import torch
 
-# Transform MNIST
-transform = transforms.Compose([
-    transforms.ToTensor(),  # Shape becomes (1, 8, 8), values in [0, 1]
-    transforms.Lambda(lambda x: x.view(-1))  # Flatten to shape (64,)
+# # Transform MNIST
+# transform = transforms.Compose([
+#     transforms.ToTensor(),  # Shape becomes (1, 8, 8), values in [0, 1]
+#     transforms.Lambda(lambda x: x.view(-1))  # Flatten to shape (64,)
+# ])
+
+# # Load datasets with transform
+# train_data = MNIST(root="./data", train=True, download=True, transform=transform)
+# val_data = MNIST(root="./data", train=False, download=True, transform=transform)
+
+# # Dataloaders
+# train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
+# val_loader = DataLoader(val_data, batch_size=64)
+
+
+def load_data_to_memory(dataset):
+    Xs = []
+    ys = []
+    for x, y in dataset:
+        Xs.append(x)
+        ys.append(y)
+    Xs = torch.stack(Xs)
+    ys = torch.tensor(ys)
+    return Xs, ys
+
+# Load MNIST without transform
+train_data_raw = MNIST(root="./data", train=True, download=True, transform=None)
+val_data_raw = MNIST(root="./data", train=False, download=True, transform=None)
+
+# Preprocess once: convert to tensors and flatten
+to_tensor_flatten = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Lambda(lambda x: x.view(-1))
 ])
 
-# Load datasets with transform
-train_data = MNIST(root="./data", train=True, download=True, transform=transform)
-val_data = MNIST(root="./data", train=False, download=True, transform=transform)
+def preprocess_dataset(raw_dataset):
+    Xs, ys = [], []
+    for img, label in raw_dataset:
+        tensor_img = to_tensor_flatten(img)
+        Xs.append(tensor_img)
+        ys.append(label)
+    return torch.stack(Xs), torch.tensor(ys)
 
-# Dataloaders
-train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
-val_loader = DataLoader(val_data, batch_size=64)
+train_X, train_y = preprocess_dataset(train_data_raw)
+val_X, val_y = preprocess_dataset(val_data_raw)
+
+# Create TensorDataset for easy batching
+train_dataset = TensorDataset(train_X, train_y)
+val_dataset = TensorDataset(val_X, val_y)
+
+# DataLoaders that just batch from tensors already in RAM
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=64)
+
 
 import torch
 import torch.nn.functional as F
