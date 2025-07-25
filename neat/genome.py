@@ -50,36 +50,79 @@ class Genome(nn.Module):
         # Bias not part of vanilla neat but nice
         self.bias = nn.Parameter(torch.zeros(self.node_count, device=device))
 
-    def build_adjacency_matrix(self):
-        # Only enabled edges
+    # def build_adjacency_matrix(self):
+    #     # Only enabled edges
+    #     mask = self.edge_enabled
+    #     src = self.edge_index[0, mask]
+    #     dst = self.edge_index[1, mask]
+    #     weights = self.edge_weight[mask]
+        
+    #     indices = torch.stack([dst, src], dim=0)  # transpose src->dst to dst->src for multiplication
+    #     values = weights
+    #     size = (self.node_count, self.node_count)
+    #     A = torch.sparse_coo_tensor(indices, values, size, device=self.device)
+    #     A = A.coalesce()
+
+    #     return A
+    
+    # def forward(self, x, steps=10):
+    #     batch_size = x.size(0)
+    #     activations = torch.zeros(batch_size, self.node_count, device=self.device, dtype=x.dtype)
+    #     activations[:, self.input_nodes] = x
+
+    #     A = self.build_adjacency_matrix()
+
+    #     for _ in range(steps):
+    #         # Sparse matmul: (N_nodes x N_nodes) @ (B x N_nodes)^T -> (N_nodes x B), then transpose back
+    #         activations = torch.sparse.mm(A, activations.T).T + self.bias
+
+    #         activations = torch.sigmoid(activations)
+    #         activations[:, self.input_nodes] = x  # clamp inputs
+
+    #     return activations[:, self.output_nodes]
+
+    def build_dense_adjacency_matrix(self):
+        """
+        Builds a dense adjacency matrix from the genome's enabled edges.
+        Shape: (node_count, node_count)
+        """
         mask = self.edge_enabled
         src = self.edge_index[0, mask]
         dst = self.edge_index[1, mask]
         weights = self.edge_weight[mask]
-        
-        indices = torch.stack([dst, src], dim=0)  # transpose src->dst to dst->src for multiplication
-        values = weights
-        size = (self.node_count, self.node_count)
-        A = torch.sparse_coo_tensor(indices, values, size, device=self.device)
-        A = A.coalesce()
 
-        return A
-    
+        A_dense = torch.zeros((self.node_count, self.node_count), device=self.device)
+        A_dense[dst, src] = weights  # Edge from src → dst
+        return A_dense
+
+
     def forward(self, x, steps=10):
+        """
+        Forward pass through the genome network using dense matrix multiplication.
+        x: Tensor of shape (batch_size, num_inputs)
+        steps: Number of propagation steps (for recurrent-style updates)
+        """
         batch_size = x.size(0)
-        activations = torch.zeros(batch_size, self.node_count, device=self.device, dtype=x.dtype)
-        activations[:, self.input_nodes] = x
+        dtype = x.dtype
 
-        A = self.build_adjacency_matrix()
+        # Initialize activation matrix
+        activations = torch.zeros(batch_size, self.node_count, device=self.device, dtype=dtype)
+        activations[:, self.input_nodes] = x  # Set input activations
+
+        # Optionally set bias
+        bias = self.bias if hasattr(self, "bias") else 0.0
+
+        # Build the dense adjacency matrix
+        A = self.build_dense_adjacency_matrix()
 
         for _ in range(steps):
-            # Sparse matmul: (N_nodes x N_nodes) @ (B x N_nodes)^T -> (N_nodes x B), then transpose back
-            activations = torch.sparse.mm(A, activations.T).T + self.bias
-
+            # Dense matrix multiply: (B x N) @ (N x N)ᵗ -> (B x N)
+            activations = torch.matmul(activations, A.T) + bias
             activations = torch.sigmoid(activations)
-            activations[:, self.input_nodes] = x  # clamp inputs
 
+        # Return output activations
         return activations[:, self.output_nodes]
+
 
     def mutate_weights(self, perturb_chance=0.8, perturb_std=0.1, reset_chance=0.1):
         with torch.no_grad():
