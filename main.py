@@ -155,4 +155,4 @@ print(device)
 # print("Best model achieved accuracy:", print(final_accuracy))
 
 import cProfile
-cProfile.run("neat_evolution_loop(train_loader, val_loader, 100, 500, device)", sort="time")
+cProfile.run("neat_evolution_loop(train_loader, val_loader, 10, 50, device)", sort="time")
