@@ -1,39 +1,6 @@
 import time
 import torch
 
-# # SKLEARN
-# from sklearn.datasets import load_digits
-# from sklearn.model_selection import train_test_split
-# from torch.utils.data import TensorDataset, DataLoader
-# import numpy as np
-
-# # Load sklearn digits data
-# digits = load_digits()
-# X = digits.images  # shape (1797, 8, 8)
-# y = digits.target  # shape (1797,)
-
-# # Normalize pixels to [0,1] float
-# X = X.astype(np.float32) / 16.0  # original max pixel is 16
-
-# # Flatten: (1797, 8, 8) → (1797, 64)
-# X = X.reshape(len(X), -1)
-
-# # Convert to torch tensors
-# X_tensor = torch.from_numpy(X)
-# y_tensor = torch.from_numpy(y).long()
-
-# # Train/val split
-# X_train, X_val, y_train, y_val = train_test_split(
-#     X_tensor, y_tensor, test_size=0.2, random_state=42, stratify=y
-# )
-
-# # Create datasets and loaders
-# train_dataset = TensorDataset(X_train, y_train)
-# val_dataset = TensorDataset(X_val, y_val)
-
-# train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-# val_loader = DataLoader(val_dataset, batch_size=64)
-
 # MNIST
 from torchvision.datasets import MNIST
 from torchvision import transforms
@@ -41,9 +8,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchvision.transforms import InterpolationMode
 import torch
 
-# Transform MNIST to match sklearn digits
+# Transform MNIST
 transform = transforms.Compose([
-    # transforms.Resize((8, 8), interpolation=InterpolationMode.BILINEAR),  # Resize 28x28 → 8x8
     transforms.ToTensor(),  # Shape becomes (1, 8, 8), values in [0, 1]
     transforms.Lambda(lambda x: x.view(-1))  # Flatten to shape (64,)
 ])
@@ -60,8 +26,6 @@ import torch
 import torch.nn.functional as F
 import random
 from genome import Genome, InnovationTracker
-
-# Assume digits dataset and DataLoader as you provided are already defined
 
 # Simple fitness function: accuracy on a small validation batch
 def evaluate_fitness(genome, data_loader, device):
@@ -80,8 +44,8 @@ def evaluate_fitness(genome, data_loader, device):
     return correct / total if total > 0 else 0.0
 
 # Simple NEAT evolutionary loop
-def neat_evolution_loop(train_loader, val_loader, device,
-                        population_size=10, generations=5,
+def neat_evolution_loop(train_loader, val_loader,
+                        population_size, generations, device,
                         selection_frac=0.4, mutation_probs=None,
                         use_crossover=False, quiet=False):
     if mutation_probs is None:
@@ -162,4 +126,4 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # print("Best model achieved fitness:", best_fitness)
 
 import cProfile
-cProfile.run("neat_evolution_loop(train_loader, val_loader, device, population_size=100, generations=100, quiet=True)", sort="time")
+cProfile.run("neat_evolution_loop(train_loader, val_loader, 100, 500, device, quiet=True)", sort="time")
