@@ -158,4 +158,4 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # print("Best model achieved accuracy:", print(final_accuracy))
 
 import cProfile
-cProfile.run("neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)", sort="time")
+cProfile.run("neat_evolution_loop(train_loader, val_loader, 500, 400, device, quiet=True)", sort="time")
