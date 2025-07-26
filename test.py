@@ -154,7 +154,7 @@ def neat_evolution_loop(train_loader, val_loader,
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-best_genome, final_accuracy = neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)
+# best_genome, final_accuracy = neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)
 # print("Best model achieved accuracy:", print(final_accuracy))
 
 import cProfile
