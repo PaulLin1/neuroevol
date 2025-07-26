@@ -1,4 +1,3 @@
-
 import torch
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
@@ -26,136 +25,90 @@ train_loader = DataLoader(train_dataset, batch_size=len(train_dataset), shuffle=
 val_loader = DataLoader(val_dataset, batch_size=len(train_dataset))
 
 import torch
-import torch.nn.functional as F
-import random
-from neat.genome import Genome, InnovationTracker
 import torch.nn as nn
+import torch.nn.functional as F
 
-# Simple fitness function: accuracy on a small validation batch
-def evaluate_fitness(genome, data_loader, device, quiet=False):
-    genome.eval()
-    loss_fn = nn.CrossEntropyLoss(reduction="sum")  # sum to average later
+# Simple FFN model
+class SimpleFFN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(64, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 10)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
+
+# Evaluation: negative loss as fitness
+def evaluate_fitness(model, data_loader, device, quiet=False):
+    model.eval()
+    loss_fn = nn.CrossEntropyLoss(reduction="sum")
     total_loss = 0.0
     correct = 0
     total = 0
 
     with torch.no_grad():
         for X_batch, y_batch in data_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
-            outputs = genome(X_batch)
-
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            outputs = model(X_batch)
             loss = loss_fn(outputs, y_batch)
-            total_loss += loss
-
+            total_loss += loss.item()
             preds = outputs.argmax(dim=1)
-            correct += (preds == y_batch).sum()
+            correct += (preds == y_batch).sum().item()
             total += y_batch.size(0)
 
     avg_loss = total_loss / total if total > 0 else float('inf')
     accuracy = correct / total if total > 0 else 0.0
-
-    # In NEAT, fitness is often defined so higher is better, so negative loss is convenient:
     fitness = -avg_loss
 
-    # Optionally print or log metrics:
     if not quiet:
         print(f"Eval - Accuracy: {accuracy:.4f}, Avg Loss: {avg_loss:.4f}, Fitness: {fitness:.4f}")
 
-    return fitness 
+    return fitness
 
-def full_evaluation(genome, data_loader, device):
-    genome.eval()
+# Full evaluation (just accuracy)
+def full_evaluation(model, data_loader, device):
+    model.eval()
     correct = 0
     total = 0
     with torch.no_grad():
         for X_batch, y_batch in data_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
-            outputs = genome(X_batch)
-            preds = outputs.argmax(dim=1)
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            preds = model(X_batch).argmax(dim=1)
             correct += (preds == y_batch).sum().item()
             total += y_batch.size(0)
     return correct / total if total > 0 else 0.0
 
-# Simple NEAT evolutionary loop
-def neat_evolution_loop(train_loader, val_loader,
-                        population_size, generations, device,
-                        selection_frac=0, mutation_probs=None,
-                        use_crossover=False, quiet=False):
-    if mutation_probs is None:
-        mutation_probs = {
-            'weight_mutate': 0.8,
-            'weight_reset': 0.2,
-            'add_connection': 0.1,
-            'add_node': 0.05
-        }
+# Standard training loop using evaluate_fitness at the end
+def train_and_evaluate(train_loader, val_loader, device, epochs=1000, quiet=False):
+    model = SimpleFFN().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.CrossEntropyLoss()
 
-    innovation_tracker = InnovationTracker()
-
-    # Initialize population
-    population = [Genome(8*8, 10, device=device, innovation_tracker=innovation_tracker)
-                  for _ in range(population_size)]
-
-    best_genome = None
-    best_fitness = -float('inf')
-
-    for gen in range(generations):
-        print(f"\nGeneration {gen+1}")
-
-        # Evaluate fitness
-        fitnesses = []
- 
-        for i, genome in enumerate(population):
-            fitness = evaluate_fitness(genome, train_loader, device, quiet)
-            fitnesses.append((fitness, genome))
-            # if not quiet:
-            #     print(f"  Genome {i}: fitness={fitness:.3f}")
-            if fitness > best_fitness:
-                best_fitness = fitness
-                best_genome = genome
-
-        # Sort and select top
-        fitnesses.sort(key=lambda x: x[0], reverse=True)
-        num_selected = max(2, int(selection_frac * population_size))
-        selected = [g for _, g in fitnesses[:num_selected]]
-
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
         if not quiet:
-            print(f"  Selected top {num_selected} genomes")
+            print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
 
-        # Create new population
-        new_population = [selected[0]]  # Elitism
-
-        while len(new_population) < population_size:
-            if use_crossover:
-                parent1 = random.choice(selected)
-                parent2 = random.choice(selected)
-                child = parent1.crossover(parent2)
-            else:
-                parent = random.choice(selected)
-                child = parent.clone()
-
-            # Mutations
-            if random.random() < mutation_probs['weight_mutate']:
-                child.mutate_weights(perturb_chance=0.9, reset_chance=0.1)
-            if random.random() < mutation_probs['add_connection']:
-                child.mutate_add_connection()
-            if random.random() < mutation_probs['add_node']:
-                child.mutate_add_node()
-
-            new_population.append(child)
-        
-        population = new_population
-    
-        print(f"Best fitness: {best_fitness:.3f}")
-
-    final_accuracy = full_evaluation(best_genome, val_loader, device)
-    return best_genome, final_accuracy
+    # Final evaluation
+    evaluate_fitness(model, val_loader, device, quiet=False)
+    acc = full_evaluation(model, val_loader, device)
+    print(f"Final Validation Accuracy: {acc:.4f}")
+    return model
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# best_genome, final_accuracy = neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)
-# print("Best model achieved accuracy:", print(final_accuracy))
 
 import cProfile
-cProfile.run("neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)", sort="time")
+cProfile.run("train_and_evaluate(train_loader, val_loader, device, 1000, quiet=True)", sort="time")

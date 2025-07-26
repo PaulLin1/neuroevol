@@ -1,67 +1,28 @@
-import time
 import torch
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from torch.utils.data import TensorDataset, DataLoader
 
-# MNIST
-from torchvision.datasets import MNIST
-from torchvision import transforms
-from torch.utils.data import DataLoader, TensorDataset
-from torchvision.transforms import InterpolationMode
-import torch
+# Load digits dataset
+digits = load_digits()
+X = digits.images.reshape(-1, 64).astype('float32') / 16.0  # normalize to [0, 1]
+y = digits.target
 
-# # Transform MNIST
-# transform = transforms.Compose([
-#     transforms.ToTensor(),  # Shape becomes (1, 8, 8), values in [0, 1]
-#     transforms.Lambda(lambda x: x.view(-1))  # Flatten to shape (64,)
-# ])
+# Convert to torch tensors
+X_tensor = torch.tensor(X, dtype=torch.float32)
+y_tensor = torch.tensor(y, dtype=torch.long)
 
-# # Load datasets with transform
-# train_data = MNIST(root="./data", train=True, download=True, transform=transform)
-# val_data = MNIST(root="./data", train=False, download=True, transform=transform)
+# Split into train and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=42)
 
-# # Dataloaders
-# train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
-# val_loader = DataLoader(val_data, batch_size=64)
+# Create TensorDatasets (already in memory)
+train_dataset = TensorDataset(X_train, y_train)
+val_dataset = TensorDataset(X_val, y_val)
 
 
-def load_data_to_memory(dataset):
-    Xs = []
-    ys = []
-    for x, y in dataset:
-        Xs.append(x)
-        ys.append(y)
-    Xs = torch.stack(Xs)
-    ys = torch.tensor(ys)
-    return Xs, ys
-
-# Load MNIST without transform
-train_data_raw = MNIST(root="./data", train=True, download=True, transform=None)
-val_data_raw = MNIST(root="./data", train=False, download=True, transform=None)
-
-# Preprocess once: convert to tensors and flatten
-to_tensor_flatten = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Lambda(lambda x: x.view(-1))
-])
-
-def preprocess_dataset(raw_dataset):
-    Xs, ys = [], []
-    for img, label in raw_dataset:
-        tensor_img = to_tensor_flatten(img)
-        Xs.append(tensor_img)
-        ys.append(label)
-    return torch.stack(Xs), torch.tensor(ys)
-
-train_X, train_y = preprocess_dataset(train_data_raw)
-val_X, val_y = preprocess_dataset(val_data_raw)
-
-# Create TensorDataset for easy batching
-train_dataset = TensorDataset(train_X, train_y)
-val_dataset = TensorDataset(val_X, val_y)
-
-# DataLoaders that just batch from tensors already in RAM
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=64)
-
+# In-memory DataLoaders (no on-the-fly transformation needed)
+train_loader = DataLoader(train_dataset, batch_size=len(train_dataset), shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=len(train_dataset))
 
 import torch
 import torch.nn.functional as F
@@ -132,7 +93,7 @@ def neat_evolution_loop(train_loader, val_loader,
     innovation_tracker = InnovationTracker()
 
     # Initialize population
-    population = [Genome(28*28, 10, device=device, innovation_tracker=innovation_tracker)
+    population = [Genome(8*8, 10, device=device, innovation_tracker=innovation_tracker)
                   for _ in range(population_size)]
 
     best_genome = None
@@ -190,10 +151,11 @@ def neat_evolution_loop(train_loader, val_loader,
     final_accuracy = full_evaluation(best_genome, val_loader, device)
     return best_genome, final_accuracy
 
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
-# best_genome, final_accuracy = neat_evolution_loop(train_loader, val_loader, 10, 100, device, quiet=True)
+
+# best_genome, final_accuracy = neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)
 # print("Best model achieved accuracy:", print(final_accuracy))
 
 import cProfile
-cProfile.run("neat_evolution_loop(train_loader, val_loader, 3, 3, device)", sort="time")
+cProfile.run("neat_evolution_loop(train_loader, val_loader, 100, 10, device, quiet=True)", sort="time")
