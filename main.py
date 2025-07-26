@@ -190,6 +190,8 @@ from neat.genome import Genome, InnovationTracker
 #     final_accuracy = full_evaluation(best_genome, val_loader, device)
 #     return best_genome, final_accuracy
 
+import copy
+from concurrent.futures import ProcessPoolExecutor
 def evaluate_genome_fitness(data):
     genome, X_batch, y_batch = data
     import torch
