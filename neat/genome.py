@@ -65,68 +65,32 @@ class Genome(nn.Module):
         return A_dense
 
 
-    # def forward(self, x, steps=10):
-    #     """
-    #     Forward pass through the genome network using dense matrix multiplication.
-    #     x: Tensor of shape (batch_size, num_inputs)
-    #     steps: Number of propagation steps (for recurrent-style updates)
-    #     """
-    #     batch_size = x.size(0)
-    #     dtype = x.dtype
-
-    #     # Initialize activation matrix
-    #     activations = torch.zeros(batch_size, self.node_count, device=self.device, dtype=dtype)
-    #     activations[:, self.input_nodes] = x  # Set input activations
-
-    #     # Optionally set bias
-    #     bias = self.bias if hasattr(self, "bias") else 0.0
-
-    #     # Build the dense adjacency matrix
-    #     A = self.build_dense_adjacency_matrix()
-
-    #     for _ in range(steps):
-    #         # Dense matrix multiply: (B x N) @ (N x N)ᵗ -> (B x N)
-    #         activations = torch.matmul(activations, A.T) + bias
-    #         activations = torch.sigmoid(activations)
-
-    #     # Return output activations
-    #     return activations[:, self.output_nodes]
-
-
     def forward(self, x, steps=10):
         """
-        Forward pass using sparse edge-wise computation via index_add_.
+        Forward pass through the genome network using dense matrix multiplication.
         x: Tensor of shape (batch_size, num_inputs)
+        steps: Number of propagation steps (for recurrent-style updates)
         """
         batch_size = x.size(0)
         dtype = x.dtype
 
-        # Initialize activations
+        # Initialize activation matrix
         activations = torch.zeros(batch_size, self.node_count, device=self.device, dtype=dtype)
         activations[:, self.input_nodes] = x  # Set input activations
 
-        # Get enabled edge data
-        mask = self.edge_enabled
-        src = self.edge_index[0, mask]
-        dst = self.edge_index[1, mask]
-        weights = self.edge_weight[mask]
+        # Optionally set bias
+        bias = self.bias if hasattr(self, "bias") else 0.0
 
-        # Bias
-        bias = self.bias
+        # Build the dense adjacency matrix
+        A = self.build_dense_adjacency_matrix()
 
         for _ in range(steps):
-            # Compute new activations using weighted sums
-            messages = activations[:, src] * weights  # shape: (B, E)
-            new_activations = torch.zeros_like(activations)
+            # Dense matrix multiply: (B x N) @ (N x N)ᵗ -> (B x N)
+            activations = torch.matmul(activations, A.T) + bias
+            activations = torch.sigmoid(activations)
 
-            # Scatter-add over destination indices
-            new_activations.index_add_(1, dst, messages)  # dim=1 is node axis
-
-            # Add bias and nonlinearity
-            activations = torch.sigmoid(new_activations + bias)
-
+        # Return output activations
         return activations[:, self.output_nodes]
-
 
     def mutate_weights(self, perturb_chance=0.8, perturb_std=0.1, reset_chance=0.1):
         with torch.no_grad():
