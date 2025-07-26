@@ -46,10 +46,10 @@ def evaluate_fitness(genome, data_loader, device, quiet=False):
             outputs = genome(X_batch)
 
             loss = loss_fn(outputs, y_batch)
-            total_loss += loss.item()
+            total_loss += loss
 
             preds = outputs.argmax(dim=1)
-            correct += (preds == y_batch).sum().item()
+            correct += (preds == y_batch).sum()
             total += y_batch.size(0)
 
     avg_loss = total_loss / total if total > 0 else float('inf')
